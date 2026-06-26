@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BISINDO — Deteksi Bahasa Isyarat</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg         : #0a0a0f;
+    --surface    : #13131a;
+    --surface2   : #1c1c27;
+    --border     : rgba(255,255,255,0.07);
+    --text        : #e8e8f0;
+    --text-muted  : #6b6b80;
+    --abjad      : #4ade80;
+    --numerik    : #fbbf24;
+    --kata       : #a78bfa;
+    --accent     : #4ade80;
+    --radius     : 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ── HEADER ── */
+  header {
+    padding: 20px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-icon {
+    width: 36px; height: 36px;
+    background: var(--abjad);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .logo-text { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+  .logo-sub  { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+
+  .status-badge {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 13px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ef4444;
+    transition: background 0.3s;
+  }
+  .status-dot.online { background: var(--abjad); box-shadow: 0 0 8px var(--abjad); }
+
+  /* ── MAIN LAYOUT ── */
+  main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    height: calc(100vh - 73px);
+  }
+
+  /* ── LEFT: CAMERA AREA ── */
+  .camera-section {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .camera-wrapper {
+    position: relative;
+    flex: 1;
+    background: var(--surface);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  #videoEl {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    transform: scaleX(-1);
+    display: none;
+  }
+
+  #canvasEl {
+    position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+  }
+
+  .camera-placeholder {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 16px; color: var(--text-muted);
+    text-align: center;
+  }
+  .camera-placeholder .icon { font-size: 48px; opacity: 0.3; }
+  .camera-placeholder p { font-size: 14px; line-height: 1.6; }
+
+  /* Mode label overlay */
+  .mode-overlay {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    letter-spacing: 0.5px;
+  }
+
+  /* Hand count overlay */
+  .hand-overlay {
+    position: absolute; top: 16px; right: 16px;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  /* FPS overlay */
+  .fps-overlay {
+    position: absolute; bottom: 16px; right: 16px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 11px;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-muted);
+  }
+
+  /* ── MODE SELECTOR ── */
+  .mode-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+  .mode-tab {
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+  }
+  .mode-tab:hover { background: var(--surface2); }
+  .mode-tab.active {
+    border-color: var(--accent);
+    background: rgba(74, 222, 128, 0.08);
+  }
+  .mode-tab.active.numerik {
+    border-color: var(--numerik);
+    background: rgba(251, 191, 36, 0.08);
+  }
+  .mode-tab.active.kata {
+    border-color: var(--kata);
+    background: rgba(167, 139, 250, 0.08);
+  }
+  .mode-tab .tab-icon  { font-size: 20px; margin-bottom: 4px; }
+  .mode-tab .tab-name  { font-size: 13px; font-weight: 500; }
+  .mode-tab .tab-hint  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+  /* ── RIGHT: RESULT PANEL ── */
+  .result-panel {
+    border-left: 1px solid var(--border);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    overflow-y: auto;
+  }
+
+  .panel-section h3 {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+  }
+
+  /* Result display */
+  .result-display {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    text-align: center;
+    min-height: 140px;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 8px;
+    transition: border-color 0.3s;
+  }
+  .result-display.detected {
+    border-color: var(--accent);
+    background: rgba(74, 222, 128, 0.04);
+  }
+  .result-label {
+    font-size: 56px;
+    font-weight: 600;
+    letter-spacing: -2px;
+    line-height: 1;
+    color: var(--accent);
+    transition: all 0.2s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .result-label.long-text { font-size: 28px; letter-spacing: -0.5px; }
+  .result-sublabel {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+
+  /* Confidence bar */
+  .conf-bar-wrap {
+    background: var(--surface2);
+    border-radius: 99px;
+    height: 6px;
+    width: 100%;
+    margin-top: 4px;
+    overflow: hidden;
+  }
+  .conf-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--accent);
+    transition: width 0.3s ease, background 0.3s;
+    width: 0%;
+  }
+  .conf-value {
+    font-size: 12px;
+    color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+    text-align: right;
+    margin-top: 4px;
+  }
+
+  /* History */
+  .history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+  .history-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-size: 13px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(-6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .history-item .hi-label { font-weight: 500; }
+  .history-item .hi-meta  {
+    font-size: 11px; color: var(--text-muted);
+    font-family: 'DM Mono', monospace;
+  }
+  .history-clear {
+    font-size: 12px; color: var(--text-muted);
+    cursor: pointer; text-decoration: underline;
+    background: none; border: none; cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .history-clear:hover { color: var(--text); }
+
+  /* Stats */
+  .stats-grid {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px;
+  }
+  .stat-value {
+    font-size: 22px; font-weight: 600;
+    font-family: 'DM Mono', monospace;
+    color: var(--text);
+  }
+  .stat-label {
+    font-size: 11px; color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* Start button */
+  #startBtn {
+    width: 100%; padding: 14px;
+    border-radius: 10px;
+    border: none; cursor: pointer;
+    font-size: 14px; font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    background: var(--abjad);
+    color: #0a0a0f;
+    transition: all 0.2s;
+    letter-spacing: 0.2px;
+  }
+  #startBtn:hover    { opacity: 0.9; transform: translateY(-1px); }
+  #startBtn:active   { transform: translateY(0); }
+  #startBtn.stop {
+    background: var(--surface2);
+    color: #ef4444;
+    border: 1px solid rgba(239,68,68,0.3);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar       { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <div class="logo-icon"></div>
+    <div>
+      <div class="logo-text">BISINDO Vision</div>
+      <div class="logo-sub">Deteksi Bahasa Isyarat Real-time</div>
+    </div>
+  </div>
+  <div class="status-badge">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Menghubungkan...</span>
+  </div>
+</header>
+
+<main>
+
+  <!-- LEFT: CAMERA -->
+  <div class="camera-section">
+    <div class="camera-wrapper" id="cameraWrapper">
+      <div class="camera-placeholder" id="placeholder">
+        <div class="icon">📷</div>
+        <p>Klik <strong>Mulai Kamera</strong> untuk memulai<br>deteksi bahasa isyarat</p>
+      </div>
+      <video id="videoEl" autoplay playsinline muted></video>
+      <canvas id="canvasEl"></canvas>
+      <div class="mode-overlay" id="modeOverlay">ABJAD</div>
+      <div class="hand-overlay" id="handOverlay">0 tangan</div>
+      <div class="fps-overlay" id="fpsOverlay">-- FPS</div>
+    </div>
+
+    <!-- MODE TABS -->
+    <div class="mode-tabs">
+      <div class="mode-tab active" id="tab-abjad" onclick="setMode('abjad')">
+        <div class="tab-icon">🔤</div>
+        <div class="tab-name">Abjad</div>
+        <div class="tab-hint">A – Z</div>
+      </div>
+      <div class="mode-tab" id="tab-numerik" onclick="setMode('numerik')">
+        <div class="tab-icon">🔢</div>
+        <div class="tab-name">Numerik</div>
+        <div class="tab-hint">0 – 9</div>
+      </div>
+      <div class="mode-tab" id="tab-kata" onclick="setMode('kata')">
+        <div class="tab-icon">💬</div>
+        <div class="tab-name">Kata</div>
+        <div class="tab-hint">40 kata</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: RESULT PANEL -->
+  <div class="result-panel">
+
+    <!-- Tombol Start -->
+    <div class="panel-section">
+      <button id="startBtn" onclick="toggleCamera()">▶ Mulai Kamera</button>
+    </div>
+
+    <!-- Hasil Prediksi -->
+    <div class="panel-section">
+      <h3>Hasil Deteksi</h3>
+      <div class="result-display" id="resultDisplay">
+        <div class="result-label" id="resultLabel" style="font-size:36px;color:var(--text-muted)">—</div>
+        <div class="result-sublabel" id="resultSub">Belum ada deteksi</div>
+      </div>
+      <div style="margin-top: 10px;">
+        <div class="conf-bar-wrap">
+          <div class="conf-bar-fill" id="confBar"></div>
+        </div>
+        <div class="conf-value" id="confValue">Confidence: —</div>
+      </div>
+    </div>
+
+    <!-- Statistik -->
+    <div class="panel-section">
+      <h3>Statistik Sesi</h3>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-value" id="statTotal">0</div>
+          <div class="stat-label">Total Deteksi</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statAvgConf">—</div>
+          <div class="stat-label">Avg. Confidence</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statFps">—</div>
+          <div class="stat-label">FPS</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="statHands">0</div>
+          <div class="stat-label">Tangan Aktif</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Riwayat -->
+    <div class="panel-section">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <h3 style="margin:0">Riwayat</h3>
+        <button class="history-clear" onclick="clearHistory()">hapus semua</button>
+      </div>
+      <div class="history-list" id="historyList">
+        <div style="font-size:13px;color:var(--text-muted);text-align:center;padding:16px">
+          Riwayat deteksi akan muncul di sini
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<script>
+// ================================================================
+// STATE
+// ================================================================
+const API_BASE    = 'http://localhost:5000';
+const CONF_THRESH = 0.60;
+const INTERVAL_MS = 200;   // kirim frame tiap 200ms = ~5 FPS ke API
+
+let currentMode    = 'abjad';
+let isRunning      = false;
+let intervalId     = null;
+let stream         = null;
+let lastLabel      = null;
+let lastLabelTime  = 0;
+let totalDetections = 0;
+let confSum        = 0;
+let fpsTs          = performance.now();
+let fpsCount       = 0;
+let history        = [];
+
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17]
+];
+
+const MODE_COLORS = {
+  abjad  : '#4ade80',
+  numerik: '#fbbf24',
+  kata   : '#a78bfa'
+};
+
+// ================================================================
+// INIT: CEK STATUS SERVER
+// ================================================================
+async function checkHealth() {
+  try {
+    const res  = await fetch(`${API_BASE}/api/health`);
+    const data = await res.json();
+    if (data.status === 'ok') {
+      document.getElementById('statusDot').classList.add('online');
+      document.getElementById('statusText').textContent =
+        `Online · ${data.classes} kelas`;
+    }
+  } catch {
+    document.getElementById('statusText').textContent = 'Server offline';
+  }
+}
+checkHealth();
+
+// ================================================================
+// MODE SWITCHER
+// ================================================================
+function setMode(mode) {
+  currentMode = mode;
+
+  // Update tabs
+  ['abjad','numerik','kata'].forEach(m => {
+    const tab = document.getElementById(`tab-${m}`);
+    tab.className = 'mode-tab' + (m === mode ? ` active ${m}` : '');
+  });
+
+  // Update accent color
+  document.documentElement.style.setProperty('--accent', MODE_COLORS[mode]);
+
+  // Update overlay
+  document.getElementById('modeOverlay').textContent = mode.toUpperCase();
+
+  // Reset result
+  resetResult();
+}
+
+// ================================================================
+// KAMERA
+// ================================================================
+async function toggleCamera() {
+  if (!isRunning) {
+    await startCamera();
+  } else {
+    stopCamera();
+  }
+}
+
+async function startCamera() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { width: 1280, height: 720, facingMode: 'user' }
+    });
+
+    const video = document.getElementById('videoEl');
+    video.srcObject = stream;
+    video.style.display = 'block';
+    document.getElementById('placeholder').style.display = 'none';
+
+    isRunning = true;
+    document.getElementById('startBtn').textContent = '⏹ Stop Kamera';
+    document.getElementById('startBtn').classList.add('stop');
+
+    // Mulai loop kirim frame
+    intervalId = setInterval(captureAndSend, INTERVAL_MS);
+
+  } catch (err) {
+    alert('Gagal mengakses kamera: ' + err.message);
+  }
+}
+
+function stopCamera() {
+  isRunning = false;
+  clearInterval(intervalId);
+
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+
+  const video = document.getElementById('videoEl');
+  video.style.display = 'none';
+  video.srcObject = null;
+
+  document.getElementById('placeholder').style.display = 'flex';
+  document.getElementById('startBtn').textContent = '▶ Mulai Kamera';
+  document.getElementById('startBtn').classList.remove('stop');
+
+  // Bersihkan canvas
+  const canvas = document.getElementById('canvasEl');
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  resetResult();
+}
+
+// ================================================================
+// CAPTURE & SEND FRAME KE API
+// ================================================================
+async function captureAndSend() {
+  const video  = document.getElementById('videoEl');
+  const canvas = document.getElementById('canvasEl');
+
+  if (video.readyState < 2) return;
+
+  // Resize canvas sesuai video
+  canvas.width  = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  // Ambil frame sebagai base64
+  const tmpCanvas = document.createElement('canvas');
+  tmpCanvas.width  = video.videoWidth;
+  tmpCanvas.height = video.videoHeight;
+  const tmpCtx = tmpCanvas.getContext('2d');
+  tmpCtx.drawImage(video, 0, 0);
+  const base64 = tmpCanvas.toDataURL('image/jpeg', 0.7);
+
+  try {
+    const res  = await fetch(`${API_BASE}/api/predict`, {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ image: base64, mode: currentMode })
+    });
+    const data = await res.json();
+    handleResult(data, canvas);
+  } catch (err) {
+    console.error('API error:', err);
+  }
+
+  // Hitung FPS
+  fpsCount++;
+  const now = performance.now();
+  if (now - fpsTs >= 1000) {
+    const fps = Math.round(fpsCount * 1000 / (now - fpsTs));
+    document.getElementById('fpsOverlay').textContent = `${fps} FPS`;
+    document.getElementById('statFps').textContent     = fps;
+    fpsCount = 0;
+    fpsTs    = now;
+  }
+}
+
+// ================================================================
+// HANDLE HASIL API
+// ================================================================
+function handleResult(data, canvas) {
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Update jumlah tangan
+  const handCount = data.hand_count || 0;
+  document.getElementById('handOverlay').textContent =
+    `${handCount} tangan`;
+  document.getElementById('statHands').textContent = handCount;
+
+  if (!data.detected || !data.label) {
+    updateResultDisplay(null, 0);
+    return;
+  }
+
+  // Gambar landmark di canvas
+  if (data.landmarks && data.landmarks.length > 0) {
+    drawLandmarks(ctx, data.landmarks, canvas.width, canvas.height);
+  }
+
+  const conf  = data.confidence;
+  const label = data.label;
+
+  if (conf < CONF_THRESH) return;
+
+  // Update UI
+  updateResultDisplay(label, conf);
+
+  // Tambah ke riwayat (hanya jika label berubah atau sudah >2 detik)
+  const now = Date.now();
+  if (label !== lastLabel || now - lastLabelTime > 2000) {
+    addToHistory(label, conf);
+    lastLabel     = label;
+    lastLabelTime = now;
+  }
+
+  // Update statistik
+  totalDetections++;
+  confSum += conf;
+  document.getElementById('statTotal').textContent = totalDetections;
+  document.getElementById('statAvgConf').textContent =
+    (confSum / totalDetections * 100).toFixed(0) + '%';
+}
+
+// ================================================================
+// GAMBAR LANDMARK DI CANVAS
+// ================================================================
+function drawLandmarks(ctx, handsData, w, h) {
+  const color = MODE_COLORS[currentMode];
+
+  handsData.forEach((hand, handIdx) => {
+    const pts = hand.map(lm => ({
+      x: (1 - lm.x) * w,   // flip horizontal (mirror)
+      y: lm.y * h
+    }));
+
+    // Gambar koneksi
+    ctx.strokeStyle = color;
+    ctx.lineWidth   = 2;
+    ctx.globalAlpha = 0.85;
+    CONNECTIONS.forEach(([a, b]) => {
+      ctx.beginPath();
+      ctx.moveTo(pts[a].x, pts[a].y);
+      ctx.lineTo(pts[b].x, pts[b].y);
+      ctx.stroke();
+    });
+
+    // Gambar titik
+    pts.forEach((pt, i) => {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, i === 0 ? 6 : 4, 0, Math.PI * 2);
+      ctx.fillStyle   = i === 0 ? color : '#ffffff';
+      ctx.globalAlpha = 1;
+      ctx.fill();
+      ctx.strokeStyle = color;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
+    });
+  });
+
+  ctx.globalAlpha = 1;
+}
+
+// ================================================================
+// UPDATE UI
+// ================================================================
+function updateResultDisplay(label, conf) {
+  const display    = document.getElementById('resultDisplay');
+  const labelEl    = document.getElementById('resultLabel');
+  const subEl      = document.getElementById('resultSub');
+  const barEl      = document.getElementById('confBar');
+  const confValEl  = document.getElementById('confValue');
+  const color      = MODE_COLORS[currentMode];
+
+  if (!label) {
+    display.className   = 'result-display';
+    labelEl.textContent = '—';
+    labelEl.style.fontSize  = '56px';
+    labelEl.style.color     = 'var(--text-muted)';
+    subEl.textContent   = 'Tidak ada deteksi';
+    barEl.style.width   = '0%';
+    confValEl.textContent = 'Confidence: —';
+    return;
+  }
+
+  display.className       = 'result-display detected';
+  labelEl.textContent     = label;
+  labelEl.style.color     = color;
+  labelEl.style.fontSize  = label.length > 6 ? '28px' : '56px';
+  subEl.textContent       = `Mode: ${currentMode.toUpperCase()}`;
+  barEl.style.width       = `${conf * 100}%`;
+  barEl.style.background  = conf >= 0.75 ? color :
+                            conf >= 0.60 ? '#fbbf24' : '#ef4444';
+  confValEl.textContent   = `Confidence: ${(conf * 100).toFixed(1)}%`;
+}
+
+function addToHistory(label, conf) {
+  const list = document.getElementById('historyList');
+
+  // Hapus placeholder
+  if (history.length === 0) list.innerHTML = '';
+
+  history.unshift({ label, conf, mode: currentMode, time: new Date() });
+  if (history.length > 20) history.pop();
+
+  const item = document.createElement('div');
+  item.className = 'history-item';
+  item.innerHTML = `
+    <span class="hi-label">${label}</span>
+    <span class="hi-meta">${currentMode} · ${(conf*100).toFixed(0)}%</span>
+  `;
+  list.insertBefore(item, list.firstChild);
+
+  // Hapus item lama lebih dari 20
+  while (list.children.length > 20) list.removeChild(list.lastChild);
+}
+
+function clearHistory() {
+  history = [];
+  document.getElementById('historyList').innerHTML =
+    '<div style="font-size:13px;color:var(--text-muted);text-align:center;padding:16px">Riwayat deteksi akan muncul di sini</div>';
+}
+
+function resetResult() {
+  updateResultDisplay(null, 0);
+  lastLabel = null;
+}
+</script>
+</body>
+</html>

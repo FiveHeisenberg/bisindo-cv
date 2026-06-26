@@ -1,0 +1,76 @@
+abjad_A
+abjad_B
+abjad_C
+abjad_D
+abjad_E
+abjad_F
+abjad_G
+abjad_H
+abjad_I
+abjad_J
+abjad_K
+abjad_L
+abjad_M
+abjad_N
+abjad_O
+abjad_P
+abjad_Q
+abjad_R
+abjad_S
+abjad_T
+abjad_U
+abjad_V
+abjad_W
+abjad_X
+abjad_Y
+abjad_Z
+kata_Apa
+kata_Apa Kabar
+kata_Bagaimana
+kata_Baik
+kata_Belajar
+kata_Berapa
+kata_Berdiri
+kata_Bingung
+kata_Dia
+kata_Dimana
+kata_Duduk
+kata_Halo
+kata_Kalian
+kata_Kami
+kata_Kamu
+kata_Kapan
+kata_Kemana
+kata_Kita
+kata_Makan
+kata_Mandi
+kata_Marah
+kata_Melihat
+kata_Membaca
+kata_Menulis
+kata_Mereka
+kata_Minum
+kata_Pendek
+kata_Ramah
+kata_Sabar
+kata_Saya
+kata_Sedih
+kata_Selamat Malam
+kata_Selamat Pagi
+kata_Selamat Siang
+kata_Selamat Sore
+kata_Senang
+kata_Siapa
+kata_Terima Kasih
+kata_Tidur
+kata_Tinggi
+numerik_0
+numerik_1
+numerik_2
+numerik_3
+numerik_4
+numerik_5
+numerik_6
+numerik_7
+numerik_8
+numerik_9
